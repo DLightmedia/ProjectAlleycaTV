@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AlleycaTV — Content Manager</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1117; color: #e8eaf0; min-height: 100vh; }
+    header { background: #1a1d27; border-bottom: 1px solid #2a2d3a; padding: 16px 32px; display: flex; align-items: center; gap: 14px; }
+    .logo { width: 38px; height: 38px; background: linear-gradient(135deg, #1d5fa8, #1d9e75); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+    .logo svg { width: 22px; height: 22px; fill: #fff; }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header .sub { font-size: 13px; color: #888; margin-left: 4px; }
+    #toast { margin-left: auto; font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: 20px; opacity: 0; transition: opacity 0.4s; }
+    #toast.show { opacity: 1; }
+    #toast.ok { background: #1a3d2b; color: #4cde97; }
+    #toast.err { background: #3d1a1a; color: #de4c4c; }
+    main { padding: 32px; max-width: 1280px; margin: 0 auto; }
+    .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #666; margin-bottom: 8px; }
+    .section-hint { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.5; }
+    #zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .zone-card { background: #1a1d27; border: 2px solid #2a2d3a; border-radius: 14px; overflow: hidden; transition: border-color 0.2s; }
+    .zone-card.drag-over { border-color: #1d9e75; background: #111d16; }
+    .zone-header { padding: 16px 18px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #2a2d3a; }
+    .zone-name { font-size: 15px; font-weight: 600; flex: 1; }
+    .zone-count { font-size: 12px; color: #666; }
+    .zone-controls-row { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #2a2d3a; font-size: 13px; }
+    .zone-controls-row label { color: #888; display: flex; align-items: center; gap: 6px; }
+    .zone-controls-row select, .zone-controls-row input[type=number] {
+      padding: 5px 8px; border-radius: 6px; border: 1px solid #2a2d3a; background: #12141c; color: #e8eaf0; font-size: 13px;
+    }
+    .drop-zone { margin: 14px; border: 2px dashed #2a2d3a; border-radius: 10px; padding: 18px 14px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; }
+    .drop-zone:hover, .zone-card.drag-over .drop-zone { border-color: #1d9e75; background: #1d9e7510; }
+    .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .drop-label { font-size: 13px; color: #888; line-height: 1.5; }
+    .drop-label strong { color: #ccc; }
+    .upload-progress { margin: 0 14px 14px; display: none; }
+    .upload-progress.visible { display: block; }
+    .progress-bar-bg { background: #2a2d3a; border-radius: 4px; height: 6px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: #1d9e75; border-radius: 4px; transition: width 0.2s; width: 0%; }
+    .progress-label { font-size: 12px; color: #888; margin-top: 5px; }
+    .playlist { padding: 0 14px 14px; }
+    .playlist-empty { font-size: 13px; color: #555; text-align: center; padding: 12px 0; }
+    .playlist-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #12141c; margin-bottom: 6px; font-size: 13px; cursor: grab; }
+    .playlist-item.dragging { opacity: 0.5; }
+    .drag-handle { color: #555; cursor: grab; user-select: none; }
+    .item-icon { font-size: 16px; flex-shrink: 0; }
+    .item-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ccc; }
+    .item-type { font-size: 11px; color: #555; flex-shrink: 0; }
+    .btn-remove { background: none; border: none; color: #555; cursor: pointer; font-size: 16px; padding: 2px 4px; border-radius: 4px; }
+    .btn-remove:hover { color: #e24b4a; background: #3d1a1a; }
+    #add-zone-card { background: #1a1d27; border: 2px dashed #2a2d3a; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; cursor: pointer; gap: 10px; min-height: 160px; }
+    #add-zone-card:hover { border-color: #1d5fa8; background: #1d5fa810; }
+    #add-zone-card span { font-size: 13px; color: #666; }
+    #add-zone-card .plus { font-size: 32px; color: #444; }
+    #new-zone-form { display: none; background: #1a1d27; border: 2px solid #2a2d3a; border-radius: 14px; padding: 20px; margin-bottom: 24px; }
+    #new-zone-form.visible { display: block; }
+    #new-zone-form label { font-size: 13px; color: #888; display: block; margin-bottom: 5px; }
+    #new-zone-form input { width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid #2a2d3a; background: #12141c; color: #e8eaf0; font-size: 14px; margin-bottom: 12px; }
+    .form-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn { padding: 8px 14px; border-radius: 8px; border: none; font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer; }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #1d5fa8; color: #fff; }
+    .btn-ghost { background: #2a2d3a; color: #ccc; }
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+    .announce-card { background: #1a1d27; border: 2px solid #2a2d3a; border-radius: 14px; padding: 20px; margin-bottom: 32px; }
+    .announce-drop { border: 2px dashed #2a2d3a; border-radius: 10px; padding: 24px; text-align: center; position: relative; margin-bottom: 16px; cursor: pointer; }
+    .announce-drop:hover { border-color: #ef9f27; background: #ef9f2710; }
+    .announce-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .announce-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+    .announce-item { background: #12141c; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    #library { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .lib-item { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+    .lib-info { flex: 1; overflow: hidden; }
+    .lib-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lib-meta { font-size: 11px; color: #555; margin-top: 2px; }
+    .btn-lib-del { background: none; border: none; color: #888; cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; position: relative; z-index: 2; flex-shrink: 0; }
+    .btn-lib-del:hover { color: #e24b4a; background: #3d1a1a; }
+    .divider { border: none; border-top: 1px solid #2a2d3a; margin: 32px 0; }
+    #confirm-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    #confirm-backdrop[hidden] { display: none; }
+    #confirm-dialog { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 12px; padding: 24px; max-width: 420px; width: 90%; }
+    #confirm-message { font-size: 14px; line-height: 1.5; margin-bottom: 20px; white-space: pre-wrap; }
+    #confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    #prompt-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    #prompt-backdrop[hidden] { display: none; }
+    #prompt-dialog { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 12px; padding: 24px; max-width: 440px; width: 90%; }
+    #prompt-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    #prompt-dialog label { display: block; font-size: 13px; color: #888; margin-bottom: 14px; }
+    #prompt-dialog input { display: block; width: 100%; margin-top: 6px; padding: 9px 12px; border-radius: 8px; border: 1px solid #2a2d3a; background: #12141c; color: #e8eaf0; font-size: 14px; font-family: inherit; }
+    #prompt-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo"><svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM10 8l6 4-6 4V8z"/></svg></div>
+  <div><h1>AlleycaTV <span class="sub">Content Manager</span></h1></div>
+  <div id="toast"></div>
+</header>
+<main>
+  <p class="section-title">Announcements</p>
+  <p class="section-hint">Upload interrupt videos and photos, or add a scoreboard URL. These play only when triggered from Home Assistant — not part of the normal loop.</p>
+  <div class="announce-card">
+    <div class="announce-drop" id="announce-drop">
+      <input type="file" multiple accept="video/*,image/*,.mp4,.mkv,.mov,.avi,.jpg,.jpeg,.png,.webp" onchange="handleAnnouncementUpload(event)" />
+      <div style="font-size:28px;margin-bottom:6px">📢</div>
+      <div class="drop-label"><strong>Drop announcement videos or photos here</strong><br>or click to browse</div>
+    </div>
+    <div class="form-buttons" style="margin-bottom:14px">
+      <button type="button" class="btn btn-sm btn-primary" id="btn-add-announcement-url">+ Scoreboard URL</button>
+    </div>
+    <div class="announce-list" id="announce-list"><p style="color:#555;font-size:13px">Loading…</p></div>
+  </div>
+
+  <p class="section-title">Zones</p>
+  <p class="section-hint">Drop videos and photos onto a zone to add them to its playlist. Drag items to reorder. Photos play randomly every N videos.</p>
+  <div id="zones">
+    <div id="add-zone-card"><div class="plus">+</div><span>Create new zone</span></div>
+  </div>
+  <div id="new-zone-form">
+    <label>Zone ID <small style="color:#555">(e.g. zone-lobby)</small></label>
+    <input id="nz-id" type="text" placeholder="zone-lobby" />
+    <label>Display name</label>
+    <input id="nz-name" type="text" placeholder="Lobby Screens" />
+    <div class="form-buttons">
+      <button class="btn btn-primary" onclick="submitNewZone()">Create Zone</button>
+      <button class="btn btn-ghost" onclick="cancelNewZone()">Cancel</button>
+    </div>
+  </div>
+
+  <hr class="divider" />
+  <p class="section-title">Content Library</p>
+  <p class="section-hint">All zone loop content (videos and photos only). Deleting here also removes the file from any zone playlists that use it.</p>
+  <div id="library"><p style="color:#555;font-size:13px">Loading…</p></div>
+</main>
+<div id="confirm-backdrop" hidden>
+  <div id="confirm-dialog" role="dialog" aria-modal="true">
+    <p id="confirm-message"></p>
+    <div id="confirm-actions">
+      <button type="button" class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+<div id="prompt-backdrop" hidden>
+  <div id="prompt-dialog" role="dialog" aria-modal="true">
+    <p id="prompt-title">Add scoreboard URL</p>
+    <label>Display name
+      <input id="prompt-label" type="text" placeholder="Live Scoreboard" />
+    </label>
+    <label>URL
+      <input id="prompt-url" type="url" placeholder="http://192.168.1.50/scoreboard" />
+    </label>
+    <label>Display duration (seconds)
+      <input id="prompt-duration" type="number" min="1" max="600" value="30" />
+    </label>
+    <div id="prompt-actions">
+      <button type="button" class="btn btn-ghost" id="prompt-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="prompt-ok">Add</button>
+    </div>
+  </div>
+</div>
+<script>
+const API = '';
+let zones = [];
+let library = [];
+let playlists = {};
+
+function escAttr(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;');
+}
+
+function subdirFromUrl(url) {
+  if (!url) return 'videos';
+  if (url.includes('/photos/')) return 'photos';
+  if (url.includes('/announcements/')) return 'announcements';
+  return 'videos';
+}
+
+function fileSubdir(f) {
+  return f.subdir || subdirFromUrl(f.url);
+}
+
+function isAnnouncementItem(f) {
+  if (f.entry_id) return true;
+  return fileSubdir(f) === 'announcements';
+}
+
+function isLibraryItem(f) {
+  const subdir = fileSubdir(f);
+  return subdir === 'videos' || subdir === 'photos';
+}
+
+function zoneDisplayName(zoneId) {
+  const z = zones.find(x => x.zone_id === zoneId);
+  return z?.name || zoneId;
+}
+
+function apiFetch(path) {
+  const sep = path.includes('?') ? '&' : '?';
+  return fetch(`${API}${path}${sep}_=${Date.now()}`, { cache: 'no-store' });
+}
+
+function apiPost(path, body) {
+  return fetch(`${API}${path}`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+let _confirmCb = null;
+function showConfirm(message) {
+  return new Promise(resolve => {
+    _confirmCb = resolve;
+    document.getElementById('confirm-message').textContent = message;
+    document.getElementById('confirm-backdrop').hidden = false;
+  });
+}
+document.getElementById('confirm-cancel').addEventListener('click', () => {
+  document.getElementById('confirm-backdrop').hidden = true;
+  if (_confirmCb) _confirmCb(false);
+  _confirmCb = null;
+});
+document.getElementById('confirm-ok').addEventListener('click', () => {
+  document.getElementById('confirm-backdrop').hidden = true;
+  if (_confirmCb) _confirmCb(true);
+  _confirmCb = null;
+});
+
+let _urlFormCb = null;
+function showUrlForm(title) {
+  return new Promise(resolve => {
+    _urlFormCb = resolve;
+    document.getElementById('prompt-title').textContent = title;
+    document.getElementById('prompt-label').value = '';
+    document.getElementById('prompt-url').value = '';
+    document.getElementById('prompt-duration').value = '30';
+    document.getElementById('prompt-backdrop').hidden = false;
+    document.getElementById('prompt-label').focus();
+  });
+}
+function _closeUrlForm(result) {
+  document.getElementById('prompt-backdrop').hidden = true;
+  if (_urlFormCb) _urlFormCb(result);
+  _urlFormCb = null;
+}
+document.getElementById('prompt-cancel').addEventListener('click', () => _closeUrlForm(null));
+document.getElementById('prompt-ok').addEventListener('click', () => {
+  const label = document.getElementById('prompt-label').value.trim();
+  const url = document.getElementById('prompt-url').value.trim();
+  const duration = parseInt(document.getElementById('prompt-duration').value, 10) || 30;
+  if (!label) return toast('Display name is required', 'err');
+  if (!url) return toast('URL is required', 'err');
+  _closeUrlForm({ label, url, duration });
+});
+document.getElementById('prompt-backdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'prompt-backdrop') _closeUrlForm(null);
+});
+
+function zoneDomId(zoneId) {
+  return 'z-' + String(zoneId).replace(/[^a-zA-Z0-9_-]+/g, '-');
+}
+
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function itemIcon(type) {
+  if (type === 'photo') return '🖼';
+  if (type === 'webpage') return '🌐';
+  if (type === 'announcement') return '📢';
+  return '🎬';
+}
+
+async function loadAll() {
+  const [zonesRes, playlistsRes, contentRes] = await Promise.all([
+    apiFetch('/api/zones').then(r => r.json()).catch(() => []),
+    apiFetch('/api/playlists').then(r => r.json()).catch(() => ({})),
+    apiFetch(`/api/content/?base_url=${encodeURIComponent(location.origin)}`).then(r => r.json()).catch(() => []),
+  ]);
+  zones = zonesRes;
+  playlists = playlistsRes;
+  library = contentRes;
+  renderAnnouncements(contentRes.filter(isAnnouncementItem));
+  renderZones(zonesRes, playlistsRes);
+  renderLibrary(contentRes.filter(isLibraryItem));
+}
+
+function announceIcon(f) {
+  if (f.media_type === 'webpage') return '🌐';
+  const ext = (f.filename || '').split('.').pop().toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return '🖼';
+  return '📢';
+}
+
+function renderAnnouncements(items) {
+  const el = document.getElementById('announce-list');
+  if (!items.length) {
+    el.innerHTML = '<p style="color:#555;font-size:13px">No announcements yet.</p>';
+    return;
+  }
+  el.innerHTML = items.map(f => {
+    const meta = f.media_type === 'webpage'
+      ? `scoreboard · ${f.duration || 30}s`
+      : (f.filename.split('.').pop().toLowerCase() === 'jpg' || f.filename.match(/\.(jpeg|png|webp)$/i) ? 'photo' : 'video');
+    const delBtn = f.entry_id
+      ? `<button type="button" class="btn-lib-del announce-del" data-entry-id="${escAttr(f.entry_id)}" title="Delete">×</button>`
+      : `<button type="button" class="btn-lib-del announce-del" data-filename="${escAttr(f.filename)}" title="Delete">×</button>`;
+    return `
+    <div class="announce-item">
+      <span>${announceIcon(f)}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(f.filename)}">${f.filename}</span>
+      <span style="font-size:11px;color:#555">${meta}</span>
+      ${delBtn}
+    </div>`;
+  }).join('');
+}
+
+async function handleAnnouncementUpload(event) {
+  const files = [...event.target.files];
+  if (!files.length) return;
+  let ok = 0;
+  let fail = 0;
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('subdir', 'announcements');
+    const res = await fetch(`${API}/api/content/upload`, { method: 'POST', body: fd });
+    if (res.ok) ok++;
+    else {
+      fail++;
+      const err = await res.json().catch(() => ({}));
+      toast(`Failed: ${file.name} — ${err.detail || res.statusText}`, 'err');
+    }
+  }
+  if (ok) toast(`Uploaded ${ok} announcement(s)`, 'ok');
+  event.target.value = '';
+  await loadAll();
+}
+
+async function addAnnouncementUrl() {
+  const data = await showUrlForm('Add scoreboard to announcements');
+  if (!data) return;
+  const res = await apiPost('/api/content/announcements/url', data);
+  if (res.ok) { toast('Scoreboard URL added to announcements', 'ok'); await loadAll(); }
+  else { const err = await res.json().catch(() => ({})); toast(`✗ ${err.detail || 'Failed'}`, 'err'); }
+}
+
+async function deleteAnnouncementUrl(entryId) {
+  if (!(await showConfirm('Delete this scoreboard announcement?'))) return;
+  const res = await fetch(`${API}/api/content/announcements/url/${encodeURIComponent(entryId)}`, { method: 'DELETE', cache: 'no-store' });
+  if (res.ok) { toast('Deleted', 'ok'); await loadAll(); }
+  else {
+    const err = await res.json().catch(() => ({}));
+    toast(`Delete failed: ${err.detail || res.statusText}`, 'err');
+  }
+}
+
+async function deleteAnnouncementFile(filename, btn) {
+  if (!filename || !(await showConfirm(`Delete "${filename}"?`))) return;
+  const res = await apiPost('/api/content/announcements/delete-file', { filename });
+  if (res.ok) {
+    btn?.closest('.announce-item')?.remove();
+    const list = document.getElementById('announce-list');
+    if (list && !list.querySelector('.announce-item')) {
+      list.innerHTML = '<p style="color:#555;font-size:13px">No announcements yet.</p>';
+    }
+    toast('Deleted', 'ok');
+    await loadAll();
+  } else {
+    const err = await res.json().catch(() => ({}));
+    toast(`Delete failed: ${err.detail || res.statusText}`, 'err');
+  }
+}
+
+function renderZones(zones, plMap) {
+  const container = document.getElementById('zones');
+  const addCard = document.getElementById('add-zone-card');
+  [...container.querySelectorAll('.zone-card')].forEach(c => c.remove());
+
+  zones.forEach(z => {
+    const pl = plMap[z.zone_id] || { items: [], mode: 'manual', photo_interval: 5 };
+    const items = pl.items || [];
+    const mode = pl.mode || 'manual';
+    const photoInterval = pl.photo_interval ?? 5;
+    const domId = zoneDomId(z.zone_id);
+    const zoneEsc = escAttr(z.zone_id);
+
+    const card = document.createElement('div');
+    card.className = 'zone-card';
+    card.dataset.zoneId = z.zone_id;
+
+    const itemsHtml = items.length === 0
+      ? '<p class="playlist-empty">No content yet — drop files above</p>'
+      : items.map((item, idx) => `
+          <div class="playlist-item" draggable="true" data-idx="${idx}" data-zone="${zoneEsc}">
+            <span class="drag-handle">☰</span>
+            <span class="item-icon">${itemIcon(item.media_type)}</span>
+            <span class="item-name" title="${escAttr(item.filename || item.url)}">${escAttr(item.filename || item.url)}</span>
+            <span class="item-type">${item.media_type}</span>
+            <button type="button" class="btn-remove" data-zone="${zoneEsc}" data-idx="${idx}" title="Remove">×</button>
+          </div>`).join('');
+
+    card.innerHTML = `
+      <div class="zone-header">
+        <span class="zone-name">${escAttr(z.name || z.zone_id)}</span>
+        <span class="zone-count">${items.length} item${items.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="zone-controls-row">
+        <label>Order
+          <select class="mode-select" data-zone="${zoneEsc}">
+            <option value="manual" ${mode === 'manual' ? 'selected' : ''}>Manual</option>
+            <option value="auto" ${mode === 'auto' ? 'selected' : ''}>Auto shuffle</option>
+          </select>
+        </label>
+        <label>Photo every
+          <input type="number" class="photo-interval" data-zone="${zoneEsc}" min="0" max="99" value="${photoInterval}" style="width:52px" /> videos
+        </label>
+        <button type="button" class="btn btn-sm btn-ghost btn-save-settings" data-zone="${zoneEsc}">Save settings</button>
+        <button type="button" class="btn btn-sm btn-primary btn-add-scoreboard" data-zone="${zoneEsc}">+ Scoreboard URL</button>
+      </div>
+      <div class="drop-zone">
+        <input type="file" multiple accept="video/*,image/*,.mp4,.mkv,.mov,.avi,.jpg,.jpeg,.png,.webp"
+          data-zone="${zoneEsc}" class="zone-file-input" />
+        <div style="font-size:28px;margin-bottom:6px">📁</div>
+        <div class="drop-label"><strong>Drop videos or photos</strong><br><small style="color:#555">Not for announcements</small></div>
+      </div>
+      <div class="upload-progress" id="prog-${domId}">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="bar-${domId}"></div></div>
+        <p class="progress-label" id="prog-label-${domId}">Uploading…</p>
+      </div>
+      <div class="playlist" id="pl-${domId}">${itemsHtml}</div>`;
+
+    card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drag-over'); });
+    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+    card.addEventListener('drop', e => {
+      if (e.dataTransfer.types.includes('Files')) {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        handleFiles({ target: { files: e.dataTransfer.files } }, z.zone_id);
+      }
+    });
+
+    setupPlaylistDrag(card, z.zone_id);
+    card.querySelector('.btn-save-settings')?.addEventListener('click', () => savePlaylistSettings(z.zone_id));
+    card.querySelector('.btn-add-scoreboard')?.addEventListener('click', () => addScoreboardUrl(z.zone_id));
+    card.querySelector('.zone-file-input')?.addEventListener('change', (e) => handleFiles(e, z.zone_id));
+    card.querySelectorAll('.btn-remove').forEach(btn => {
+      btn.addEventListener('click', () => removeFromPlaylist(z.zone_id, parseInt(btn.dataset.idx, 10)));
+    });
+    container.insertBefore(card, addCard);
+  });
+}
+
+function setupPlaylistDrag(card, zoneId) {
+  const list = card.querySelector('.playlist');
+  if (!list) return;
+  let dragIdx = null;
+  list.querySelectorAll('.playlist-item').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      dragIdx = parseInt(el.dataset.idx, 10);
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    el.addEventListener('drop', async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const dropIdx = parseInt(el.dataset.idx, 10);
+      if (dragIdx === null || dragIdx === dropIdx) return;
+      await reorderPlaylist(zoneId, dragIdx, dropIdx);
+    });
+  });
+}
+
+async function reorderPlaylist(zoneId, fromIdx, toIdx) {
+  const pl = await fetch(`${API}/api/playlists/${encodeURIComponent(zoneId)}`).then(r => r.json());
+  const items = pl.items || [];
+  const [moved] = items.splice(fromIdx, 1);
+  items.splice(toIdx, 0, moved);
+  await savePlaylist(zoneId, { ...pl, zone_id: zoneId, items, mode: pl.mode || 'manual' });
+  toast('Playlist order saved', 'ok');
+  await loadAll();
+}
+
+async function savePlaylist(zoneId, data) {
+  await fetch(`${API}/api/playlists/${encodeURIComponent(zoneId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+async function savePlaylistSettings(zoneId) {
+  const card = document.querySelector(`.zone-card[data-zone-id="${zoneId}"]`);
+  if (!card) return;
+  const mode = card.querySelector('.mode-select').value;
+  const photoInterval = parseInt(card.querySelector('.photo-interval').value, 10) || 0;
+  const pl = await fetch(`${API}/api/playlists/${encodeURIComponent(zoneId)}`).then(r => r.json());
+  await savePlaylist(zoneId, { ...pl, zone_id: zoneId, mode, photo_interval: photoInterval });
+  toast('Zone settings saved', 'ok');
+  await loadAll();
+}
+
+async function addScoreboardUrl(zoneId) {
+  const data = await showUrlForm(`Add scoreboard to ${zoneDisplayName(zoneId)}`);
+  if (!data) return;
+  const pl = await fetch(`${API}/api/playlists/${encodeURIComponent(zoneId)}`).then(r => r.json());
+  const items = pl.items || [];
+  items.push({ filename: data.label, media_type: 'webpage', url: data.url, duration: data.duration });
+  await savePlaylist(zoneId, { ...pl, zone_id: zoneId, items });
+  toast('Scoreboard URL added', 'ok');
+  await loadAll();
+}
+
+async function handleFiles(event, zoneId) {
+  const files = [...event.target.files];
+  if (!files.length) return;
+  const domId = zoneDomId(zoneId);
+  const prog = document.getElementById(`prog-${domId}`);
+  const bar = document.getElementById(`bar-${domId}`);
+  const lbl = document.getElementById(`prog-label-${domId}`);
+  prog.classList.add('visible');
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    lbl.textContent = `Uploading ${i + 1}/${files.length}: ${file.name}`;
+    bar.style.width = `${Math.round((i / files.length) * 100)}%`;
+    const ext = file.name.split('.').pop().toLowerCase();
+    const isPhoto = ['jpg','jpeg','png','webp'].includes(ext);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('subdir', isPhoto ? 'photos' : 'videos');
+    fd.append('zone_id', zoneId);
+    try {
+      const res = await fetch(`${API}/api/content/upload`, { method: 'POST', body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast(`✗ ${file.name}: ${err.detail || res.statusText}`, 'err');
+      }
+    } catch (e) {
+      toast(`✗ Upload failed: ${e.message}`, 'err');
+    }
+    bar.style.width = `${Math.round(((i + 1) / files.length) * 100)}%`;
+  }
+  lbl.textContent = `Done! ${files.length} file(s) added.`;
+  setTimeout(() => prog.classList.remove('visible'), 2500);
+  toast(`✓ Added to ${zoneId}`, 'ok');
+  event.target.value = '';
+  await loadAll();
+}
+
+async function removeFromPlaylist(zoneId, idx) {
+  const pl = await fetch(`${API}/api/playlists/${encodeURIComponent(zoneId)}`).then(r => r.json());
+  const items = pl.items || [];
+  items.splice(idx, 1);
+  await savePlaylist(zoneId, { ...pl, zone_id: zoneId, items });
+  toast('Removed from playlist', 'ok');
+  await loadAll();
+}
+
+document.getElementById('add-zone-card').onclick = () => {
+  document.getElementById('new-zone-form').classList.add('visible');
+  document.getElementById('nz-id').focus();
+};
+function cancelNewZone() {
+  document.getElementById('new-zone-form').classList.remove('visible');
+  document.getElementById('nz-id').value = '';
+  document.getElementById('nz-name').value = '';
+}
+async function submitNewZone() {
+  const id = document.getElementById('nz-id').value.trim();
+  const name = document.getElementById('nz-name').value.trim();
+  if (!id) return toast('Zone ID is required', 'err');
+  const res = await fetch(`${API}/api/zones`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zone_id: id, name: name || id }),
+  });
+  if (res.ok) { toast(`Zone "${id}" created`, 'ok'); cancelNewZone(); await loadAll(); }
+  else { const err = await res.json().catch(() => ({})); toast(`✗ ${err.detail || 'Failed'}`, 'err'); }
+}
+
+function renderLibrary(files) {
+  const el = document.getElementById('library');
+  if (!files.length) { el.innerHTML = '<p style="color:#555;font-size:13px">No videos or photos yet.</p>'; return; }
+  const fmt = b => b > 1e6 ? (b/1e6).toFixed(1)+' MB' : (b/1024).toFixed(0)+' KB';
+  el.innerHTML = files.map(f => {
+    const subdir = fileSubdir(f);
+    return `<div class="lib-item">
+      <span>${itemIcon(f.media_type)}</span>
+      <div class="lib-info"><div class="lib-name" title="${escAttr(f.filename)}">${f.filename}</div>
+      <div class="lib-meta">${f.media_type} · ${fmt(f.size_bytes)}</div></div>
+      <button type="button" class="btn-lib-del lib-del" data-subdir="${escAttr(subdir)}" data-filename="${escAttr(f.filename)}" title="Delete">×</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteFile(subdir, filename, btn) {
+  if (!filename || !subdir) {
+    toast('Delete failed: missing file info', 'err');
+    return;
+  }
+  let zoneIds = [];
+  try {
+    const usageRes = await apiPost('/api/content/usage-check', { subdir, filename });
+    if (usageRes.ok) {
+      const usage = await usageRes.json();
+      zoneIds = usage.zones || [];
+    }
+  } catch (e) {
+    console.warn('[AlleycaTV] usage lookup failed:', e);
+  }
+
+  let msg = `Delete "${filename}"?`;
+  if (zoneIds.length) {
+    const names = zoneIds.map(zoneDisplayName).join(', ');
+    msg = `"${filename}" is in the playlist for: ${names}.\n\nDelete the file and remove it from those zone(s)?`;
+  }
+  if (!(await showConfirm(msg))) return;
+
+  const res = await apiPost('/api/content/delete-file', { subdir, filename });
+  if (res.ok) {
+    btn?.closest('.lib-item')?.remove();
+    const data = await res.json().catch(() => ({}));
+    const removed = data.removed_from_zones || [];
+    if (removed.length) {
+      toast(`Deleted and removed from ${removed.map(zoneDisplayName).join(', ')}`, 'ok');
+    } else {
+      toast('Deleted', 'ok');
+    }
+    await loadAll();
+  } else {
+    const err = await res.json().catch(() => ({}));
+    toast(`Delete failed: ${err.detail || res.statusText}`, 'err');
+  }
+}
+
+document.body.addEventListener('click', (e) => {
+  const btn = e.target.closest('.lib-del, .announce-del');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (btn.classList.contains('announce-del')) {
+    const entryId = btn.getAttribute('data-entry-id');
+    const filename = btn.getAttribute('data-filename');
+    if (entryId) deleteAnnouncementUrl(entryId);
+    else deleteAnnouncementFile(filename, btn);
+  } else {
+    deleteFile(btn.getAttribute('data-subdir'), btn.getAttribute('data-filename'), btn);
+  }
+}, true);
+
+document.getElementById('btn-add-announcement-url').addEventListener('click', () => addAnnouncementUrl());
+
+loadAll();
+</script>
+</body>
+</html>

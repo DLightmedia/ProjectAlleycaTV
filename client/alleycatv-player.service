@@ -1,0 +1,20 @@
+[Unit]
+Description=AlleycaTV Pi Player
+After=network-online.target graphical.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=admin
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/admin/.Xauthority
+WorkingDirectory=/opt/alleycatv
+ExecStart=/opt/alleycatv/venv/bin/python alleycatv_player/player.py
+Restart=always
+RestartSec=10
+
+# Allow time for network and display to be ready
+ExecStartPre=/bin/sleep 5
+
+[Install]
+WantedBy=graphical.target

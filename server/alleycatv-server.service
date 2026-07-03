@@ -1,0 +1,18 @@
+[Unit]
+Description=AlleycaTV FastAPI Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=alleycatv
+WorkingDirectory=/opt/alleycatv/server
+ExecStart=/opt/alleycatv/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --access-log
+Restart=on-failure
+RestartSec=5
+
+# Allow the service to read/write media and config files
+ReadWritePaths=/opt/alleycatv
+
+[Install]
+WantedBy=multi-user.target

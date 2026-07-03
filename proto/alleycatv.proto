@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+// AlleycaTV Protocol — video distribution system
+// Source of truth: regenerate alleycatv_pb2.py using generate_proto.sh after changes.
+
+// Published by each Raspberry Pi every 30s and on state change.
+// Topic: alleycatv/pi/{pi_id}/status  (retained=true)
+// Empty payload = LWT (device offline).
+message PiStatusMsg {
+  string pi_id          = 1;
+  string zone           = 2;
+  string state          = 3;  // "playing" | "paused" | "stopped" | "interrupted" | "idle"
+  string current_file   = 4;  // filename currently playing (basename only)
+  int32  playlist_index = 5;
+  string ip             = 6;
+  int64  uptime         = 7;  // seconds since player start
+  bool   online         = 8;
+  string next_file      = 9;  // basename of next item in queue (empty if stopped/none)
+}
+
+// ── Commands (HA → Pi) ────────────────────────────────────────────────────────
+// Topic per action:
+//   Zone:  alleycatv/zone/{zone_id}/cmd/{action}
+//   Pi:    alleycatv/pi/{pi_id}/cmd/{action}
+// Where {action} is: play | stop | interrupt | reload | volume
+
+// Resume normal playlist playback.
+message PlayCmd {}
+
+// Stop playback immediately.
+message StopCmd {}
+
+// Interrupt the current playlist, play the given announcement file,
+// then automatically resume the playlist from where it was paused.
+message InterruptCmd {
+  string file_url = 1;  // full HTTP URL, e.g. http://server/media/announcements/alert.mp4
+}
+
+// Re-fetch the zone playlist from the server (e.g. after uploading new content).
+message ReloadPlaylistCmd {}
+
+// Set playback volume (0–100).
+message SetVolumeCmd {
+  int32 volume = 1;
+}
